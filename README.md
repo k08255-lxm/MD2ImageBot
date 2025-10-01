@@ -45,6 +45,7 @@ unzip main.zip
 cd "${repo}-main"
 
 # 2) 安装并启动
+chmod +x setup.sh
 ./setup.sh
 # 按提示填写 .env 配置
 
