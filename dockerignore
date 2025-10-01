@@ -1,0 +1,14 @@
+# .dockerignore
+.git
+.gitignore
+.gitattributes
+.vscode
+.venv
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.tmp
+storage/
+*.zip
