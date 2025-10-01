@@ -37,10 +37,20 @@
 2. 克隆本仓库并执行：
 
 ```bash
+# 1) 下载并解压
+owner="k08255-lxm"
+repo="MD2ImageBot"
+curl -L "https://github.com/$owner/$repo/archive/refs/heads/main.zip" -o main.zip
+unzip main.zip
+cd "${repo}-main"
+
+# 2) 安装并启动
 ./setup.sh
 # 按提示填写 .env 配置
+
 # 完成后执行：
-source .venv/bin/activate && python -m src.main
+source .venv/bin/activate
+python -m src.main
 ```
 
 > 首次运行会自动安装 Playwright 的 Chromium。
