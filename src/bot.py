@@ -10,10 +10,88 @@ from .storage import Storage
 from .renderer import Renderer
 from .utils import parse_ints
 
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import CallbackQueryHandler
+
 # Globals
 START_TIME = int(time.time())
 
 class BotApp:
+        async def cmd_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        is_admin = self._is_admin(update.effective_user.id)
+        rows = [
+            [InlineKeyboardButton("📝 渲染说明 /help", callback_data="show_help")],
+        ]
+        if is_admin:
+            rows.extend([
+                [InlineKeyboardButton("📈 查看状态", callback_data="show_status")],
+                [InlineKeyboardButton("🌐 公开 ON", callback_data="cmd_public_on"),
+                 InlineKeyboardButton("🔒 公开 OFF", callback_data="cmd_public_off")],
+                [InlineKeyboardButton("👤 白名单：/wl_add /wl_remove /wl_list", callback_data="noop")],
+                [InlineKeyboardButton("🙅 黑名单：/bl_add /bl_remove /bl_list", callback_data="noop")],
+            ])
+        await update.effective_message.reply_text(
+            "选择一个操作：",
+            reply_markup=InlineKeyboardMarkup(rows)
+        )
+
+    async def on_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        query = update.callback_query
+        data = query.data if query else ""
+        # 先弹个短提示，避免 Telegram loading
+        await query.answer()
+
+        # 仅管理员能点这些按钮
+        uid = update.effective_user.id
+        is_admin = self._is_admin(uid)
+
+        if data == "show_help":
+            await query.message.reply_text(
+                "使用：直接发送 Markdown 文本，或用 /render（可回复一条消息）。\n"
+                "管理员：/status /public_on /public_off /wl_add /wl_remove /bl_add /bl_remove /wl_list /bl_list"
+            )
+            return
+
+        if data == "show_status":
+            if not is_admin:
+                await query.message.reply_text("需要管理员权限。")
+                return
+            st = self.storage.get()
+            uptime = int(time.time()) - START_TIME
+            stats = st["stats"]; conf = st["config"]
+            msg = (
+                f"🟢 运行中\n"
+                f"Uptime: {uptime}s\n"
+                f"公开使用: {conf.get('public_enabled', True)}\n"
+                f"白名单: {len(conf.get('whitelist', []))} 人\n"
+                f"黑名单: {len(conf.get('blacklist', []))} 人\n"
+                f"总请求: {stats.get('total_requests',0)}\n"
+                f"成功: {stats.get('render_success',0)} / 失败: {stats.get('render_failed',0)}\n"
+            )
+            await query.message.reply_text(msg)
+            return
+
+        if data == "cmd_public_on":
+            if not is_admin:
+                await query.message.reply_text("需要管理员权限。")
+                return
+            self.storage.set_public(True)
+            await query.message.reply_text("已开启公开使用。")
+            return
+
+        if data == "cmd_public_off":
+            if not is_admin:
+                await query.message.reply_text("需要管理员权限。")
+                return
+            self.storage.set_public(False)
+            await query.message.reply_text("已关闭公开使用（仅管理员与白名单可用）。")
+            return
+
+        # 其余按钮仅作提示
+        if data == "noop":
+            await query.message.reply_text("请在输入框执行相应命令，例如 /wl_add 123456")
+            return
+
     def __init__(self):
         self.storage = Storage()
         self.renderer = Renderer(width=cfg.render_width)
@@ -40,6 +118,9 @@ class BotApp:
 
     # ---------- Handlers ----------
     def _register_handlers(self):
+        self.app.add_handler(CommandHandler("menu", self.cmd_menu))
+        self.app.add_handler(CallbackQueryHandler(self.on_callback))
+
         self.app.add_handler(CommandHandler("start", self.cmd_start))
         self.app.add_handler(CommandHandler("help", self.cmd_help))
 
